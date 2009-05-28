@@ -1,10 +1,32 @@
+#! /usr/bin/python
+# Copyright (c) 2009 Sauce Labs Inc
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# 'Software'), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 import struct, sys, getpass, os
 
 from twisted.conch.ssh import transport, userauth, connection, common, keys, channel, forwarding
 from twisted.internet import defer, protocol, reactor
 
 class TunnelTransport(transport.SSHClientTransport):
-  def __init__(self, user, password, forward_host, forward_port, forward_remote_port):
+  def __init__(self, user, password, forward_host, forward_port, forward_remote_port, connected_callback=None):
     try:
       transport.SSHClientTransport.__init__(self)
     except AttributeError:
@@ -14,6 +36,7 @@ class TunnelTransport(transport.SSHClientTransport):
     self.forward_host = forward_host
     self.forward_port = forward_port
     self.forward_remote_port = forward_remote_port
+    self.connected_callback = connected_callback
 
   def verifyHostKey(self, hostKey, fingerprint):
     print 'host key fingerprint: %s' % fingerprint
@@ -24,7 +47,8 @@ class TunnelTransport(transport.SSHClientTransport):
       TunnelUserAuth(self.user,
                      TunnelConnection(self.forward_host,
                                       self.forward_port,
-                                      self.forward_remote_port),
+                                      self.forward_remote_port,
+                                      self.connected_callback),
                      self.password))
 
 class TunnelUserAuth(userauth.SSHUserAuthClient):
@@ -52,7 +76,7 @@ class TunnelUserAuth(userauth.SSHUserAuthClient):
         return
 
 class TunnelConnection(connection.SSHConnection):
-  def __init__(self, forward_host, forward_port, forward_remote_port):
+  def __init__(self, forward_host, forward_port, forward_remote_port, connected_callback=None):
     try:
       connection.SSHConnection.__init__(self)
     except AttributeError:
@@ -61,6 +85,7 @@ class TunnelConnection(connection.SSHConnection):
     self.forward_host = forward_host
     self.forward_port = forward_port
     self.forward_remote_port = forward_remote_port
+    self.connected_callback = connected_callback
 
   def serviceStarted(self):
     self.remoteForwards = {}
@@ -79,6 +104,8 @@ class TunnelConnection(connection.SSHConnection):
     print('accepted remote forwarding %s:%s' % (remotePort, hostport))
     self.remoteForwards[remotePort] = hostport
     print(repr(self.remoteForwards))
+    if self.connected_callback:
+      self.connected_callback()
 
   def _ebRemoteForwarding(self, f, remotePort, hostport):
     print('remote forwarding %s:%s failed' % (remotePort, hostport))
@@ -127,7 +154,7 @@ class NullChannel(channel.SSHChannel):
   name = 'session'
 
   def openFailed(self, reason):
-    print 'echo failed', reason
+    print 'NullChannel open failed', reason
 
   def channelOpen(self, ignoredData):
     return
@@ -142,6 +169,6 @@ class NullChannel(channel.SSHChannel):
     print(repr(self.conn.channels))
 
 
-def connect_tunnel(username, access_key, local_port, local_host, remote_port, remote_host):
-  protocol.ClientCreator(reactor, TunnelTransport, username, access_key, local_host, local_port, remote_port).connectTCP(remote_host, 22)
+def connect_tunnel(username, access_key, local_port, local_host, remote_port, remote_host, cb):
+  d = protocol.ClientCreator(reactor, TunnelTransport, username, access_key, local_host, local_port, remote_port, cb).connectTCP(remote_host, 22)
   reactor.run()
