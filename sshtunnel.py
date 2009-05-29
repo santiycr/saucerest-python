@@ -1,5 +1,8 @@
 #! /usr/bin/python
+# -*- coding: utf-8 -*-
+#
 # Copyright (c) 2009 Sauce Labs Inc
+# Copyright (c) 2001-2004 Twisted Matrix Laboratories.
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -23,7 +26,7 @@
 import struct, sys, os
 
 from twisted.conch.ssh import transport, userauth, connection, common, keys, channel, forwarding
-from twisted.internet import defer, protocol, reactor
+from twisted.internet import defer, protocol, reactor, task
 
 class TunnelTransport(transport.SSHClientTransport):
   def __init__(self, user, password, forward_host, forward_port, forward_remote_port, connected_callback=None):
@@ -74,6 +77,31 @@ class TunnelUserAuth(userauth.SSHUserAuthClient):
     def getPrivateKey(self):
         return
 
+
+class _KeepAlive:
+
+  def __init__(self, conn):
+    self.conn = conn
+    self.globalTimeout = None
+    self.lc = task.LoopingCall(self.sendGlobal)
+    self.lc.start(300)
+
+  def sendGlobal(self):
+    d = self.conn.sendGlobalRequest("tunnel-keep-alive@saucelabs.com",
+                                    "", wantReply = 1)
+    d.addBoth(self._cbGlobal)
+    self.globalTimeout = reactor.callLater(30, self._ebGlobal)
+
+  def _cbGlobal(self, res):
+    if self.globalTimeout:
+      self.globalTimeout.cancel()
+      self.globalTimeout = None
+
+  def _ebGlobal(self):
+    if self.globalTimeout:
+      self.globalTimeout = None
+      self.conn.transport.loseConnection()
+
 class TunnelConnection(connection.SSHConnection):
   def __init__(self, forward_host, forward_port, forward_remote_port, connected_callback=None):
     try:
@@ -88,6 +116,8 @@ class TunnelConnection(connection.SSHConnection):
 
   def serviceStarted(self):
     self.remoteForwards = {}
+    if hasattr(self.transport, 'sendIgnore'):
+      _KeepAlive(self)
     self.requestRemoteForwarding(self.forward_remote_port, (self.forward_host, self.forward_port))
     self.openChannel(NullChannel())
 
