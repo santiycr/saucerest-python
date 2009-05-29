@@ -20,7 +20,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import struct, sys, getpass, os
+import struct, sys, os
 
 from twisted.conch.ssh import transport, userauth, connection, common, keys, channel, forwarding
 from twisted.internet import defer, protocol, reactor
@@ -39,7 +39,6 @@ class TunnelTransport(transport.SSHClientTransport):
     self.connected_callback = connected_callback
 
   def verifyHostKey(self, hostKey, fingerprint):
-    print 'host key fingerprint: %s' % fingerprint
     return defer.succeed(1)
 
   def connectionSecure(self):
@@ -103,7 +102,6 @@ class TunnelConnection(connection.SSHConnection):
   def _cbRemoteForwarding(self, result, remotePort, hostport):
     print('accepted remote forwarding %s:%s' % (remotePort, hostport))
     self.remoteForwards[remotePort] = hostport
-    print(repr(self.remoteForwards))
     if self.connected_callback:
       self.connected_callback()
 
@@ -119,12 +117,10 @@ class TunnelConnection(connection.SSHConnection):
       del self.remoteForwards[remotePort]
     except:
       pass
-    print(repr(self.remoteForwards))
 
   def channel_forwarded_tcpip(self, windowSize, maxPacket, data):
     print('%s %s' % ('FTCP', repr(data)))
     remoteHP, origHP = forwarding.unpackOpen_forwarded_tcpip(data)
-    print(self.remoteForwards)
     print(remoteHP)
     if self.remoteForwards.has_key(remoteHP[1]):
       connectHP = self.remoteForwards[remoteHP[1]]
@@ -169,6 +165,6 @@ class NullChannel(channel.SSHChannel):
     print(repr(self.conn.channels))
 
 
-def connect_tunnel(username, access_key, local_port, local_host, remote_port, remote_host, cb):
-  d = protocol.ClientCreator(reactor, TunnelTransport, username, access_key, local_host, local_port, remote_port, cb).connectTCP(remote_host, 22)
+def connect_tunnel(username, access_key, local_port, local_host, remote_port, remote_host, connected_callback=None):
+  d = protocol.ClientCreator(reactor, TunnelTransport, username, access_key, local_host, local_port, remote_port, connected_callback).connectTCP(remote_host, 22)
   reactor.run()

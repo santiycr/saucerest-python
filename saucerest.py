@@ -61,10 +61,7 @@ class SauceClient:
         headers = {"Content-Type": "application/json"}
         url = self.baseUrl + "/rest/%s/%s" % (self.account_name, type)
         response, content = self.http.request(url, 'GET', headers=headers)
-        if attachment:
-            return content
-        else:
-            return simplejson.loads(content)
+        return simplejson.loads(content)
 
     def create(self, type, body):
         headers = {"Content-Type": "application/json"}

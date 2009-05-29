@@ -24,26 +24,43 @@
 
 import sys
 import time
+import signal
 import saucerest
 import sshtunnel
 import daemon
 
-if len(sys.argv) != 3:
-  print "Usage: tunnel.py <username> <access key>"
-  sys.exit(0)
-username = sys.argv[1]
-access_key = sys.argv[2]
+from optparse import OptionParser
 
-domains = ['www.1234.dev']
-local_port = 5000
-local_host = "localhost"
-remote_port = 80
+usage = "usage: %prog [options] <username> <access key> <local host> <local port> <remote port> <remote domain> [<remote domain>...]"
+op = OptionParser(usage=usage)
+op.add_option("-d", "--daemonize",
+              action="store_true", dest="daemonize",
+              help="background the process once the tunnel is established")
+op.add_option("-p", "--pidfile", dest="pidfile",
+              help="when used with --daemonize, write backgrounded Process ID to FILE [default: %default]", metavar="FILE")
+op.set_defaults(daemonize=False)
+op.set_defaults(pidfile="tunnel.pid")
+(options, args) = op.parse_args()
+num_missing = 6 - len(args)
+if num_missing > 0:
+  op.error("missing %d required argument(s)" % num_missing)
+
+username = args[0]
+access_key = args[1]
+local_host = args[2]
+local_port = int(args[3])
+remote_port = int(args[4])
+domains = args[5:]
 
 sauce = saucerest.SauceClient(name=username, access_key=access_key)
 
+print "Launching tunnel machine..."
 response = sauce.create_tunnel({'DomainNames': domains})
-print response
+if 'error' in response:
+  print "Error: %s" % response['error']
+  sys.exit(0)
 tunnel_id = response['id']
+print "Tunnel ID: %s" % tunnel_id
 
 try:
   interval = 10
@@ -51,20 +68,33 @@ try:
   t = 0
   while t < timeout:
     tunnel = sauce.get_tunnel(tunnel_id)
-    print tunnel
+    print "Status: %s" % tunnel['Status']
     if tunnel['Status'] == 'running':
       break
 
-    print "sleeping..."
     time.sleep(interval)
     t += interval
 
 
-  pidfile = "tunnel.pid"
+  connected_callback = None
+  if options.daemonize:
+    def handler(signum, frame):
+      print "Aborted -- shutting down tunnel machine"
+      sauce.delete_tunnel(tunnel_id)
+      raise Exception("asked to die")
+
+    def daemonize():
+      daemon.daemonize(options.pidfile)
+      signal.signal(signal.SIGINT, handler)
+      signal.signal(signal.SIGTERM, handler)
+
+    connected_callback = daemonize
+
   sshtunnel.connect_tunnel(username, access_key,
                            local_port, local_host, remote_port,
                            tunnel['Host'],
-                           lambda: daemon.daemonize(pidfile))
+                           connected_callback)
+
 finally:
-  print "Aborted -- shutting down tunnel"
+  print "Aborted -- shutting down tunnel machine"
   sauce.delete_tunnel(tunnel_id)
