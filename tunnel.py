@@ -38,8 +38,12 @@ op.add_option("-d", "--daemonize",
               help="background the process once the tunnel is established")
 op.add_option("-p", "--pidfile", dest="pidfile",
               help="when used with --daemonize, write backgrounded Process ID to FILE [default: %default]", metavar="FILE")
+op.add_option("-s", "--shutdown",
+              action="store_true", dest="shutdown",
+              help="shutdown any existing tunnel machines using one or more requested domain names")
 op.set_defaults(daemonize=False)
 op.set_defaults(pidfile="tunnel.pid")
+op.set_defaults(shutdown=False)
 (options, args) = op.parse_args()
 num_missing = 6 - len(args)
 if num_missing > 0:
@@ -54,6 +58,20 @@ domains = args[5:]
 
 sauce = saucerest.SauceClient(name=username, access_key=access_key)
 
+
+if options.shutdown:
+  print "Searching for existing tunnels using requested domains..."
+  tunnels = sauce.list_tunnels()
+  for tunnel in tunnels:
+    for domain in domains:
+      if domain in tunnel['DomainNames']:
+        print "tunnel %s is currenty using requested domain %s" % (
+          tunnel['_id'],
+          domain)
+        print "shutting down tunnel %s" % tunnel['_id']
+        sauce.delete_tunnel(tunnel['_id'])
+
+
 print "Launching tunnel machine..."
 response = sauce.create_tunnel({'DomainNames': domains})
 if 'error' in response:
@@ -61,6 +79,7 @@ if 'error' in response:
   sys.exit(0)
 tunnel_id = response['id']
 print "Tunnel ID: %s" % tunnel_id
+
 
 try:
   interval = 10

@@ -31,9 +31,9 @@ import simplejson  # http://cheeseshop.python.org/pypi/simplejson
 class SauceClient:
     """Basic wrapper class for operations with Sauce"""
 
-    def __init__(self, name=None, access_key=None):
+    def __init__(self, name=None, access_key=None, timeout=30):
         self.baseUrl = "https://saucelabs.com"
-        self.http = httplib2.Http()
+        self.http = httplib2.Http(timeout=timeout)
         self.account_name = name
         self.http.add_credentials(name, access_key)
 
