@@ -38,11 +38,14 @@ op.add_option("-d", "--daemonize",
               help="background the process once the tunnel is established")
 op.add_option("-p", "--pidfile", dest="pidfile",
               help="when used with --daemonize, write backgrounded Process ID to FILE [default: %default]", metavar="FILE")
+op.add_option("-r", "--readyfile", dest="readyfile",
+              help="create FILE when the tunnel is ready", metavar="FILE")
 op.add_option("-s", "--shutdown",
               action="store_true", dest="shutdown",
               help="shutdown any existing tunnel machines using one or more requested domain names")
 op.set_defaults(daemonize=False)
 op.set_defaults(pidfile="tunnel.pid")
+op.set_defaults(readyfile=False)
 op.set_defaults(shutdown=False)
 (options, args) = op.parse_args()
 num_missing = 6 - len(args)
@@ -95,24 +98,30 @@ try:
     t += interval
 
 
+  def shutdown_callback():
+    sauce.delete_tunnel(tunnel_id)
+
+  drop_readyfile = None
+  if options.readyfile:
+    def d():
+      open(options.readyfile, 'wb').write("ready")
+    drop_readyfile = d
+
   connected_callback = None
   if options.daemonize:
-    def handler(signum, frame):
-      print "Aborted -- shutting down tunnel machine"
-      sauce.delete_tunnel(tunnel_id)
-      raise Exception("asked to die")
-
     def daemonize():
       daemon.daemonize(options.pidfile)
-      signal.signal(signal.SIGINT, handler)
-      signal.signal(signal.SIGTERM, handler)
-
+      if drop_readyfile:
+        drop_readyfile()
     connected_callback = daemonize
+  elif drop_readyfile:
+    connected_callback = drop_readyfile
 
   sshtunnel.connect_tunnel(username, access_key,
                            local_port, local_host, remote_port,
                            tunnel['Host'],
-                           connected_callback)
+                           connected_callback,
+                           shutdown_callback)
 
 finally:
   print "Aborted -- shutting down tunnel machine"
