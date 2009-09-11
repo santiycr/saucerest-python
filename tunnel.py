@@ -122,6 +122,7 @@ try:
                            tunnel['Host'],
                            connected_callback,
                            shutdown_callback)
+  print "ssh remote tunnel opened"
 
 finally:
   print "Aborted -- shutting down tunnel machine"
