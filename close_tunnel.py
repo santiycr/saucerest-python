@@ -50,5 +50,9 @@ if options.all:
 
 for tunnel_id in tunnel_ids:
     print "shutting down tunnel machine", tunnel_id
-    print sauce.delete_tunnel(tunnel_id)
-
+    if sauce.delete_tunnel(tunnel_id).has_key('ok'):
+        print "Tunnel closed successfully"
+    elif sauce.delete_tunnel(tunnel_id).has_key('error'):
+        print "Error closing tunnel: %s" % sauce.delete_tunnel(tunnel_id)['error']
+    else:
+        print sauce.delete_tunnel(tunnel_id)
