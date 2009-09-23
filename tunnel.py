@@ -31,26 +31,41 @@ import daemon
 
 from optparse import OptionParser
 
-usage = "usage: %prog [options] <username> <access key> <local host> <local port> <remote port> <remote domain> [<remote domain>...]"
+usage = "usage: %prog [options] <username> <access key> <local host> <local \
+port> <remote port> <remote domain> [<remote domain>...]"
 op = OptionParser(usage=usage)
-op.add_option("-d", "--daemonize",
-              action="store_true", dest="daemonize",
+op.add_option("-d",
+              "--daemonize",
+              action="store_true",
+              dest="daemonize",
+              default=False,
               help="background the process once the tunnel is established")
-op.add_option("-p", "--pidfile", dest="pidfile",
-              help="when used with --daemonize, write backgrounded Process ID to FILE [default: %default]", metavar="FILE")
-op.add_option("-r", "--readyfile", dest="readyfile",
-              help="create FILE when the tunnel is ready", metavar="FILE")
-op.add_option("-s", "--shutdown",
-              action="store_true", dest="shutdown",
-              help="shutdown any existing tunnel machines using one or more requested domain names")
-op.set_defaults(daemonize=False)
-op.set_defaults(pidfile="tunnel.pid")
-op.set_defaults(readyfile=False)
-op.set_defaults(shutdown=False)
+op.add_option("-p",
+              "--pidfile",
+              dest="pidfile",
+              default="tunnel.pid",
+              help="when used with --daemonize, write backgrounded Process ID \
+to FILE [default: %default]",
+              metavar="FILE")
+op.add_option("-r",
+              "--readyfile",
+              dest="readyfile",
+              default=False,
+              help="create FILE when the tunnel is ready",
+              metavar="FILE")
+op.add_option("-s",
+              "--shutdown",
+              action="store_true",
+              dest="shutdown",
+              default=False,
+              help="shutdown any existing tunnel machines using one or more \
+requested domain names")
+
 (options, args) = op.parse_args()
+
 num_missing = 6 - len(args)
 if num_missing > 0:
-  op.error("missing %d required argument(s)" % num_missing)
+    op.error("missing %d required argument(s)" % num_missing)
 
 username = args[0]
 access_key = args[1]
@@ -61,69 +76,73 @@ domains = args[5:]
 
 sauce = saucerest.SauceClient(name=username, access_key=access_key)
 
-
 if options.shutdown:
-  print "Searching for existing tunnels using requested domains..."
-  tunnels = sauce.list_tunnels()
-  for tunnel in tunnels:
-    for domain in domains:
-      if domain in tunnel['DomainNames']:
-        print "tunnel %s is currenty using requested domain %s" % (
-          tunnel['_id'],
-          domain)
-        print "shutting down tunnel %s" % tunnel['_id']
-        sauce.delete_tunnel(tunnel['_id'])
+    print "Searching for existing tunnels using requested domains..."
+    tunnels = sauce.list_tunnels()
+    for tunnel in tunnels:
+        for domain in domains:
+            if domain in tunnel['DomainNames']:
+                print "tunnel %s is currenty using requested domain %s" % (
+                    tunnel['_id'],
+                    domain)
+                print "shutting down tunnel %s" % tunnel['_id']
+                sauce.delete_tunnel(tunnel['_id'])
 
 
 print "Launching tunnel machine..."
 response = sauce.create_tunnel({'DomainNames': domains})
 if 'error' in response:
-  print "Error: %s" % response['error']
-  sys.exit(0)
+    print "Error: %s" % response['error']
+    sys.exit(0)
 tunnel_id = response['id']
 print "Tunnel ID: %s" % tunnel_id
 
 
 try:
-  interval = 10
-  timeout = 600
-  t = 0
-  while t < timeout:
-    tunnel = sauce.get_tunnel(tunnel_id)
-    print "Status: %s" % tunnel['Status']
-    if tunnel['Status'] == 'running':
-      break
+    interval = 5
+    timeout = 600
+    t = 0
+    last_st = ""
+    while t < timeout:
+        tunnel = sauce.get_tunnel(tunnel_id)
+        if tunnel['Status'] != last_st:
+            last_st = tunnel['Status']
+            print "Status: %s" % tunnel['Status']
+        if tunnel['Status'] == 'running':
+            break
+        time.sleep(interval)
+        t += interval
 
-    time.sleep(interval)
-    t += interval
+    def shutdown_callback():
+        sauce.delete_tunnel(tunnel_id)
 
+    drop_readyfile = None
+    if options.readyfile:
 
-  def shutdown_callback():
-    sauce.delete_tunnel(tunnel_id)
+        def d():
+            open(options.readyfile, 'wb').write("ready")
+        drop_readyfile = d
 
-  drop_readyfile = None
-  if options.readyfile:
-    def d():
-      open(options.readyfile, 'wb').write("ready")
-    drop_readyfile = d
+    connected_callback = None
+    if options.daemonize:
 
-  connected_callback = None
-  if options.daemonize:
-    def daemonize():
-      daemon.daemonize(options.pidfile)
-      if drop_readyfile:
-        drop_readyfile()
-    connected_callback = daemonize
-  elif drop_readyfile:
-    connected_callback = drop_readyfile
+        def daemonize():
+            daemon.daemonize(options.pidfile)
+            if drop_readyfile:
+                drop_readyfile()
+        connected_callback = daemonize
+    elif drop_readyfile:
+        connected_callback = drop_readyfile
 
-  sshtunnel.connect_tunnel(username, access_key,
-                           local_port, local_host, remote_port,
-                           tunnel['Host'],
-                           connected_callback,
-                           shutdown_callback)
-  print "ssh remote tunnel opened"
+    sshtunnel.connect_tunnel(username,
+                             access_key,
+                             local_port,
+                             local_host,
+                             remote_port,
+                             tunnel['Host'],
+                             connected_callback,
+                             shutdown_callback)
 
 finally:
-  print "Aborted -- shutting down tunnel machine"
-  sauce.delete_tunnel(tunnel_id)
+    print "Aborted -- shutting down tunnel machine"
+    sauce.delete_tunnel(tunnel_id)

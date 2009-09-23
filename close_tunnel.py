@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2009 Sauce Labs Inc
@@ -29,8 +29,10 @@ from optparse import OptionParser
 
 usage = "usage: %prog [options] <username> <access key> [<tunnel id>]"
 op = OptionParser(usage=usage)
-op.add_option("-a", "--all",
-              action="store_true", dest="all",
+op.add_option("-a",
+              "--all",
+              action="store_true",
+              dest="all",
               help="close all open tunnels")
 op.set_defaults(all=False)
 (options, args) = op.parse_args()
@@ -49,10 +51,10 @@ if options.all:
     tunnel_ids = [t['_id'] for t in sauce.list_tunnels()]
 
 for tunnel_id in tunnel_ids:
-    print "shutting down tunnel machine", tunnel_id
-    if sauce.delete_tunnel(tunnel_id).has_key('ok'):
+    print "Shutting down tunnel machine", tunnel_id
+    if "ok" in sauce.delete_tunnel(tunnel_id):
         print "Tunnel closed successfully"
-    elif sauce.delete_tunnel(tunnel_id).has_key('error'):
-        print "Error closing tunnel: %s" % sauce.delete_tunnel(tunnel_id)['error']
+    elif "error" in sauce.delete_tunnel(tunnel_id):
+        print "Error: %s" % sauce.delete_tunnel(tunnel_id)['error']
     else:
         print sauce.delete_tunnel(tunnel_id)

@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2009 Sauce Labs Inc
@@ -28,12 +28,13 @@ import saucerest
 
 from optparse import OptionParser
 
-usage = "usage: %prog [options] <username> <access key> <local host> <local port> <remote port> <remote domain> [<remote domain>...]"
+usage = "usage: %prog [options] <username> <access key> <local host> <local \
+port> <remote port> <remote domain> [<remote domain>...]"
 usage = "usage: %prog <username> <access key>"
 op = OptionParser(usage=usage)
 (options, args) = op.parse_args()
 if len(args) != 2:
-  op.error("exactly 2 arguments are required")
+    op.error("exactly 2 arguments are required")
 
 username = args[0]
 access_key = args[1]

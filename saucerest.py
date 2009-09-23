@@ -28,6 +28,7 @@ import httplib2
 import urllib
 import simplejson  # http://cheeseshop.python.org/pypi/simplejson
 
+
 class SauceClient:
     """Basic wrapper class for operations with Sauce"""
 
@@ -39,18 +40,22 @@ class SauceClient:
 
         # Used for job/batch waiting
         self.SLEEP_INTERVAL = 5   # in seconds
-        self.TIMEOUT = 300  # TIMEOUT / 60 = number of minutes before timing out
+        self.TIMEOUT = 300  # TIMEOUT/60 = number of minutes before timing out
 
     def get(self, type, doc_id, **kwargs):
         headers = {"Content-Type": "application/json"}
         attachment = ""
-        if kwargs.has_key('attachment'):
+        if 'attachment' in kwargs:
             attachment = "/%s" % kwargs.pop('attachment')
         if kwargs:
             parameters = "?%s" % (urllib.urlencode(kwargs))
         else:
             parameters = ""
-        url = self.baseUrl + "/rest/%s/%s/%s%s%s" % (self.account_name, type, doc_id, attachment, parameters)
+        url = self.baseUrl + "/rest/%s/%s/%s%s%s" % (self.account_name,
+                                                     type,
+                                                     doc_id,
+                                                     attachment,
+                                                     parameters)
         response, content = self.http.request(url, 'GET', headers=headers)
         if attachment:
             return content
@@ -67,31 +72,38 @@ class SauceClient:
         headers = {"Content-Type": "application/json"}
         url = self.baseUrl + "/rest/%s/%s" % (self.account_name, type)
         body = simplejson.dumps(body)
-        response, content = self.http.request(url, 'POST', body=body, headers=headers)
+        response, content = self.http.request(url,
+                                              'POST',
+                                              body=body,
+                                              headers=headers)
         return simplejson.loads(content)
 
     def attach(self, doc_id, name, body):
-        url = self.baseUrl + "/rest/%s/scripts/%s/%s" % (self.account_name, doc_id, name)
+        url = self.baseUrl + "/rest/%s/scripts/%s/%s" % (self.account_name,
+                                                         doc_id, name)
         response, content = self.http.request(url, 'PUT', body=body)
         return simplejson.loads(content)
 
     def delete(self, type, doc_id):
         headers = {"Content-Type": "application/json"}
-        url = self.baseUrl + "/rest/%s/%s/%s" % (self.account_name, type, doc_id)
+        url = self.baseUrl + "/rest/%s/%s/%s" % (self.account_name,
+                                                 type,
+                                                 doc_id)
         response, content = self.http.request(url, 'DELETE', headers=headers)
         return simplejson.loads(content)
 
     #------ Sauce-specific objects ------
 
     # Scripts
+
     def create_script(self, body):
         return self.create('scripts', body)
 
     def get_script(self, script_id):
         return self.get('scripts', doc_id=script_id)
 
-
     # Jobs
+
     def create_job(self, body):
         return self.create('jobs', body)
 
@@ -105,19 +117,20 @@ class SauceClient:
         t = 0
         while t < self.TIMEOUT:
             jobs = self.get_jobs(batch=batch_id)
-            total_complete = len( [job['Status'] for job in jobs if job['Status'] == 'complete'] )
-            total_error = len( [job['Status'] for job in jobs if job['Status'] == 'error'] )
+            total_comp = len([j for j in jobs if j['Status'] == 'complete'])
+            total_err = len([j for j in jobs if j['Status'] == 'error'])
 
-            if total_complete + total_error == len(jobs):
+            if total_comp + total_err == len(jobs):
                 return
 
             time.sleep(self.SLEEP_INTERVAL)
             t += self.SLEEP_INTERVAL
 
         if t >= self.TIMEOUT:
-           raise Exception("Timed out waiting for all jobs to finish")
+            raise Exception("Timed out waiting for all jobs to finish")
 
     # Tunnels
+
     def create_tunnel(self, body):
         return self.create('tunnels', body)
 
