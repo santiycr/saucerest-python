@@ -28,7 +28,7 @@ import sys
 import os
 
 from twisted.conch.ssh import connection, channel, \
-                              userauth, keys, common \
+                              userauth, keys, common, \
                               transport, forwarding
 from twisted.internet import defer, protocol, reactor, task
 
