@@ -219,22 +219,22 @@ class NullChannel(channel.SSHChannel):
         print('closed %s' % self)
         print(repr(self.conn.channels))
 
-    def connect_tunnel(username,
-                       access_key,
-                       local_port,
-                       local_host,
-                       remote_port,
-                       remote_host,
-                       connected_callback=None,
-                       shutdown_callback=None):
-        d = protocol.ClientCreator(reactor,
-                                   TunnelTransport,
-                                   username,
-                                   access_key,
-                                   local_host,
-                                   local_port,
-                                   remote_port,
-                                   connected_callback).connectTCP(remote_host,
-                                                                  22)
-        reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
-        reactor.run()
+def connect_tunnel(username,
+                   access_key,
+                   local_port,
+                   local_host,
+                   remote_port,
+                   remote_host,
+                   connected_callback=None,
+                   shutdown_callback=None):
+    d = protocol.ClientCreator(reactor,
+                               TunnelTransport,
+                               username,
+                               access_key,
+                               local_host,
+                               local_port,
+                               remote_port,
+                               connected_callback).connectTCP(remote_host,
+                                                              22)
+    reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
+    reactor.run()
