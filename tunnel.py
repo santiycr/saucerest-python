@@ -60,6 +60,12 @@ op.add_option("-s",
               default=False,
               help="shutdown any existing tunnel machines using one or more \
 requested domain names")
+op.add_option("--diagnostic",
+              action="store_true",
+              dest="diagnostic",
+              default=False,
+              help="using this option, we will run a set of tests to make sure\
+ the arguments given are correct.")
 
 (options, args) = op.parse_args()
 
@@ -74,7 +80,36 @@ local_port = int(args[3])
 remote_port = int(args[4])
 domains = args[5:]
 
+if options.diagnostic:
+    errors = []
+    # Checking domains to forward
+    import re
+    for domain in domains:
+        if not re.search("^([\\da-z\\.-]+)\\.([a-z\\.]{2,6})$", domain):
+            errors.append("Incorrect domain given: %s" % domain)
+
+    # Checking if host is accessible
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect((local_host, local_port))
+    except socket.gaierror:
+        errors.append("Local host %s is not accessible" % local_host)
+    except socket.error, (_, port_error):
+        errors.apppend("Problem connecting to host: %s" % port_error)
+    if len(errors):
+        print "Errors found:"
+        for error in errors:
+            print "\t%s" % error
+    else:
+        print "No errors found"
+    sys.exit(0)
+
 sauce = saucerest.SauceClient(name=username, access_key=access_key)
+
+if sauce.get_tunnel("test-authorized")['error'] == 'Unauthorized':
+    print "Error: User/access-key combination is incorrect"
+    sys.exit(0)
 
 if options.shutdown:
     print "Searching for existing tunnels using requested domains..."
