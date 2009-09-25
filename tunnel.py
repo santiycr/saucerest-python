@@ -32,7 +32,8 @@ import daemon
 from optparse import OptionParser
 
 usage = "usage: %prog [options] <username> <access key> <local host> <local \
-port> <remote port> <remote domain> [<remote domain>...]"
+port>:<remote port>[,<local port>:<remote port>] <remote domain>[,<remote \
+domain>...]"
 op = OptionParser(usage=usage)
 op.add_option("-d",
               "--daemonize",
@@ -69,16 +70,19 @@ op.add_option("--diagnostic",
 
 (options, args) = op.parse_args()
 
-num_missing = 6 - len(args)
+num_missing = 5 - len(args)
 if num_missing > 0:
     op.error("missing %d required argument(s)" % num_missing)
 
 username = args[0]
 access_key = args[1]
 local_host = args[2]
-local_port = int(args[3])
-remote_port = int(args[4])
-domains = args[5:]
+ports = []
+for pair in args[3].split(","):
+    if ":" not in pair:
+        op.error("incorrect port syntax: %s" % pair)
+    ports.append([int(port) for port in pair.split(":", 1)])
+domains = ",".join(args[4:]).split(",")
 
 if options.diagnostic:
     errors = []
@@ -90,13 +94,18 @@ if options.diagnostic:
 
     # Checking if host is accessible
     import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        s.connect((local_host, local_port))
-    except socket.gaierror:
-        errors.append("Local host %s is not accessible" % local_host)
-    except socket.error, (_, port_error):
-        errors.apppend("Problem connecting to host: %s" % port_error)
+    for pair in ports:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.connect((local_host, pair[0]))
+        except socket.gaierror:
+            errors.append("Local host %s is not accessible" % local_host)
+            break
+        except socket.error, (_, port_error):
+            errors.append("Problem connecting to %s:%s: %s" % (local_host,
+                                                               pair[0],
+                                                               port_error))
+
     if len(errors):
         print "Errors found:"
         for error in errors:
@@ -171,10 +180,9 @@ try:
 
     sshtunnel.connect_tunnel(username,
                              access_key,
-                             local_port,
                              local_host,
-                             remote_port,
                              tunnel['Host'],
+                             ports,
                              connected_callback,
                              shutdown_callback)
 

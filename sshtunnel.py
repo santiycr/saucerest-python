@@ -171,7 +171,7 @@ class TunnelConnection(connection.SSHConnection):
         except:
             pass
 
-    def channel_forwarded_tcpip(self, windowSize, maxPacket, data):
+    def channel_forwarded_tcpip(self, winSize, maxP, data):
         #print('%s %s' % ('FTCP', repr(data)))
         remoteHP, origHP = forwarding.unpackOpen_forwarded_tcpip(data)
         #print(remoteHP)
@@ -179,16 +179,16 @@ class TunnelConnection(connection.SSHConnection):
             connectHP = self.remoteForwards[remoteHP[1]]
             #print('connect forwarding %s' % connectHP)
             return forwarding.SSHConnectForwardingChannel(connectHP,
-                                                          remoteWindow=windowSize,
-                                                          remoteMaxPacket=maxPacket,
+                                                          remoteWindow=winSize,
+                                                          remoteMaxPacket=maxP,
                                                           conn = self)
         else:
             raise ConchError(connection.OPEN_CONNECT_FAILED,
                              "don't know about that port")
 
     def channelClosed(self, channel):
-        print('connection closing %s' % channel)
-        print(self.channels)
+        #print('connection closing %s' % channel)
+        #print(self.channels)
         if len(self.channels) == 1: # just us left
             print('stopping connection')
             try:
@@ -219,22 +219,32 @@ class NullChannel(channel.SSHChannel):
         print('closed %s' % self)
         print(repr(self.conn.channels))
 
+open_tunnels = 0
+
+
 def connect_tunnel(username,
                    access_key,
-                   local_port,
                    local_host,
-                   remote_port,
                    remote_host,
+                   ports,
                    connected_callback=None,
                    shutdown_callback=None):
-    d = protocol.ClientCreator(reactor,
-                               TunnelTransport,
-                               username,
-                               access_key,
-                               local_host,
-                               local_port,
-                               remote_port,
-                               connected_callback).connectTCP(remote_host,
+
+    def check_n_call():
+        global open_tunnels
+        open_tunnels += 1
+        if open_tunnels >= len(ports) and connected_callback:
+            connected_callback()
+
+    for (local_port, remote_port) in ports:
+        d = protocol.ClientCreator(reactor,
+                                   TunnelTransport,
+                                   username,
+                                   access_key,
+                                   local_host,
+                                   local_port,
+                                   remote_port,
+                                   check_n_call).connectTCP(remote_host,
                                                               22)
     reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
     reactor.run()
