@@ -41,7 +41,8 @@ class TunnelTransport(transport.SSHClientTransport):
                  forward_host,
                  forward_port,
                  forward_remote_port,
-                 connected_callback=None):
+                 connected_callback=None,
+                 diagnostic=False):
         try:
             transport.SSHClientTransport.__init__(self)
         except AttributeError:
@@ -52,6 +53,7 @@ class TunnelTransport(transport.SSHClientTransport):
         self.forward_port = forward_port
         self.forward_remote_port = forward_remote_port
         self.connected_callback = connected_callback
+        self.diagnostic = diagnostic
 
     def verifyHostKey(self, hostKey, fingerprint):
         return defer.succeed(1)
@@ -62,7 +64,8 @@ class TunnelTransport(transport.SSHClientTransport):
                            TunnelConnection(self.forward_host,
                            self.forward_port,
                            self.forward_remote_port,
-                           self.connected_callback),
+                           self.connected_callback,
+                           self.diagnostic),
                            self.password))
 
 
@@ -124,7 +127,8 @@ class TunnelConnection(connection.SSHConnection):
                  forward_host,
                  forward_port,
                  forward_remote_port,
-                 connected_callback=None):
+                 connected_callback=None,
+                 diagnostic=False):
         try:
             connection.SSHConnection.__init__(self)
         except AttributeError:
@@ -134,6 +138,7 @@ class TunnelConnection(connection.SSHConnection):
         self.forward_port = forward_port
         self.forward_remote_port = forward_remote_port
         self.connected_callback = connected_callback
+        self.diagnostic = diagnostic
 
     def serviceStarted(self):
         self.remoteForwards = {}
@@ -148,18 +153,18 @@ class TunnelConnection(connection.SSHConnection):
         d = self.sendGlobalRequest('tcpip-forward',
                                    data,
                                    wantReply=1)
-        print('requesting remote forwarding %s:%s' %(remotePort, hostport))
+        print('requesting remote forwarding %s=>%s:%s' %(remotePort, hostport[0],hostport[1]))
         d.addCallback(self._cbRemoteForwarding, remotePort, hostport)
         d.addErrback(self._ebRemoteForwarding, remotePort, hostport)
 
     def _cbRemoteForwarding(self, result, remotePort, hostport):
-        print('accepted remote forwarding %s:%s' % (remotePort, hostport))
+        print('accepted remote forwarding %s=>%s:%s' %(remotePort, hostport[0],hostport[1]))
         self.remoteForwards[remotePort] = hostport
         if self.connected_callback:
             self.connected_callback()
 
     def _ebRemoteForwarding(self, f, remotePort, hostport):
-        print('remote forwarding %s:%s failed' % (remotePort, hostport))
+        print('remote forwarding %s=>%s:%s failed' %(remotePort, hostport[0],hostport[1]))
         print(f)
 
     def cancelRemoteForwarding(self, remotePort):
@@ -172,12 +177,15 @@ class TunnelConnection(connection.SSHConnection):
             pass
 
     def channel_forwarded_tcpip(self, winSize, maxP, data):
-        #print('%s %s' % ('FTCP', repr(data)))
+        if self.diagnostic:
+            print('FTCP %s' % repr(data))
         remoteHP, origHP = forwarding.unpackOpen_forwarded_tcpip(data)
-        #print(remoteHP)
+        if self.diagnostic:
+            print(remoteHP)
         if remoteHP[1] in self.remoteForwards:
             connectHP = self.remoteForwards[remoteHP[1]]
-            #print('connect forwarding %s' % connectHP)
+            if self.diagnostic:
+                print('connect forwarding ', connectHP)
             return forwarding.SSHConnectForwardingChannel(connectHP,
                                                           remoteWindow=winSize,
                                                           remoteMaxPacket=maxP,
@@ -187,8 +195,9 @@ class TunnelConnection(connection.SSHConnection):
                              "don't know about that port")
 
     def channelClosed(self, channel):
-        #print('connection closing %s' % channel)
-        #print(self.channels)
+        if self.diagnostic:
+            print('connection closing %s' % channel)
+            print(self.channels)
         if len(self.channels) == 1: # just us left
             print('stopping connection')
             try:
@@ -228,7 +237,8 @@ def connect_tunnel(username,
                    remote_host,
                    ports,
                    connected_callback=None,
-                   shutdown_callback=None):
+                   shutdown_callback=None,
+                   diagnostic=False):
 
     def check_n_call():
         global open_tunnels
@@ -244,7 +254,8 @@ def connect_tunnel(username,
                                    local_host,
                                    local_port,
                                    remote_port,
-                                   check_n_call).connectTCP(remote_host,
+                                   check_n_call,
+                                   diagnostic).connectTCP(remote_host,
                                                               22)
     reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
     reactor.run()

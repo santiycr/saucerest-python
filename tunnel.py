@@ -110,9 +110,9 @@ if options.diagnostic:
         print "Errors found:"
         for error in errors:
             print "\t%s" % error
+        sys.exit(0)
     else:
-        print "No errors found"
-    sys.exit(0)
+        print "No errors found, proceeding"
 
 sauce = saucerest.SauceClient(name=username, access_key=access_key)
 
@@ -184,7 +184,8 @@ try:
                              tunnel['Host'],
                              ports,
                              connected_callback,
-                             shutdown_callback)
+                             shutdown_callback,
+                             options.diagnostic)
 
 finally:
     print "Aborted -- shutting down tunnel machine"
