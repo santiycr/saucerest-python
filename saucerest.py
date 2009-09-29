@@ -32,7 +32,11 @@ import simplejson  # http://cheeseshop.python.org/pypi/simplejson
 class SauceClient:
     """Basic wrapper class for operations with Sauce"""
 
-    def __init__(self, name=None, access_key=None, timeout=30):
+    def __init__(self, name=None, access_key=None,
+                 base_url="https://saucelabs.com",
+                 timeout=30):
+        if base_url.endswith('/'):
+            base_url = base_url[:-1]
         self.baseUrl = "https://saucelabs.com"
         self.http = httplib2.Http(timeout=timeout)
         self.account_name = name
