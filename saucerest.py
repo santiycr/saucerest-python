@@ -37,7 +37,7 @@ class SauceClient:
                  timeout=30):
         if base_url.endswith('/'):
             base_url = base_url[:-1]
-        self.baseUrl = "https://saucelabs.com"
+        self.baseUrl = base_url
         self.http = httplib2.Http(timeout=timeout)
         self.account_name = name
         self.http.add_credentials(name, access_key)
