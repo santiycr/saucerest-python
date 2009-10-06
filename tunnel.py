@@ -68,6 +68,10 @@ op.add_option("--diagnostic",
               help="using this option, we will run a set of tests to make sure\
  the arguments given are correct. If all works, will open the tunnels in debug\
  mode")
+op.add_option("-b", "--baseurl",
+              dest="base_url",
+              default="https://saucelabs.com",
+              help="use an alternate base URL for the saucelabs service")
 
 (options, args) = op.parse_args()
 
@@ -115,7 +119,8 @@ if options.diagnostic:
     else:
         print "No errors found, proceeding"
 
-sauce = saucerest.SauceClient(name=username, access_key=access_key)
+sauce = saucerest.SauceClient(name=username, access_key=access_key,
+                              base_url=options.base_url)
 
 if sauce.get_tunnel("test-authorized")['error'] == 'Unauthorized':
     print "Error: User/access-key combination is incorrect"

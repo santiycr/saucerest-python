@@ -32,8 +32,12 @@ import simplejson  # http://cheeseshop.python.org/pypi/simplejson
 class SauceClient:
     """Basic wrapper class for operations with Sauce"""
 
-    def __init__(self, name=None, access_key=None, timeout=30):
-        self.baseUrl = "https://saucelabs.com"
+    def __init__(self, name=None, access_key=None,
+                 base_url="https://saucelabs.com",
+                 timeout=30):
+        if base_url.endswith('/'):
+            base_url = base_url[:-1]
+        self.base_url = base_url
         self.http = httplib2.Http(timeout=timeout)
         self.account_name = name
         self.http.add_credentials(name, access_key)
@@ -51,11 +55,11 @@ class SauceClient:
             parameters = "?%s" % (urllib.urlencode(kwargs))
         else:
             parameters = ""
-        url = self.baseUrl + "/rest/%s/%s/%s%s%s" % (self.account_name,
-                                                     type,
-                                                     doc_id,
-                                                     attachment,
-                                                     parameters)
+        url = self.base_url + "/rest/%s/%s/%s%s%s" % (self.account_name,
+                                                      type,
+                                                      doc_id,
+                                                      attachment,
+                                                      parameters)
         response, content = self.http.request(url, 'GET', headers=headers)
         if attachment:
             return content
@@ -64,13 +68,13 @@ class SauceClient:
 
     def list(self, type):
         headers = {"Content-Type": "application/json"}
-        url = self.baseUrl + "/rest/%s/%s" % (self.account_name, type)
+        url = self.base_url + "/rest/%s/%s" % (self.account_name, type)
         response, content = self.http.request(url, 'GET', headers=headers)
         return simplejson.loads(content)
 
     def create(self, type, body):
         headers = {"Content-Type": "application/json"}
-        url = self.baseUrl + "/rest/%s/%s" % (self.account_name, type)
+        url = self.base_url + "/rest/%s/%s" % (self.account_name, type)
         body = simplejson.dumps(body)
         response, content = self.http.request(url,
                                               'POST',
@@ -79,16 +83,16 @@ class SauceClient:
         return simplejson.loads(content)
 
     def attach(self, doc_id, name, body):
-        url = self.baseUrl + "/rest/%s/scripts/%s/%s" % (self.account_name,
-                                                         doc_id, name)
+        url = self.base_url + "/rest/%s/scripts/%s/%s" % (self.account_name,
+                                                          doc_id, name)
         response, content = self.http.request(url, 'PUT', body=body)
         return simplejson.loads(content)
 
     def delete(self, type, doc_id):
         headers = {"Content-Type": "application/json"}
-        url = self.baseUrl + "/rest/%s/%s/%s" % (self.account_name,
-                                                 type,
-                                                 doc_id)
+        url = self.base_url + "/rest/%s/%s/%s" % (self.account_name,
+                                                  type,
+                                                  doc_id)
         response, content = self.http.request(url, 'DELETE', headers=headers)
         return simplejson.loads(content)
 
