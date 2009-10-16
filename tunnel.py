@@ -161,6 +161,8 @@ try:
             break
         time.sleep(interval)
         t += interval
+    else:
+        raise Exception("Timed out")
 
     def shutdown_callback():
         sauce.delete_tunnel(tunnel_id)
