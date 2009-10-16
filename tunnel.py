@@ -66,7 +66,8 @@ op.add_option("--diagnostic",
               dest="diagnostic",
               default=False,
               help="using this option, we will run a set of tests to make sure\
- the arguments given are correct.")
+ the arguments given are correct. If all works, will open the tunnels in debug\
+ mode")
 op.add_option("-b", "--baseurl",
               dest="base_url",
               default="https://saucelabs.com",
@@ -93,7 +94,7 @@ if options.diagnostic:
     # Checking domains to forward
     import re
     for domain in domains:
-        if not re.search("^([\\da-z\\.-]+)\\.([a-z\\.]{2,6})$", domain):
+        if not re.search("^([\\da-z\\.-]+)\\.([a-z\\.]{2,8})$", domain):
             errors.append("Incorrect domain given: %s" % domain)
 
     # Checking if host is accessible
