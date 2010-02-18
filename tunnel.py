@@ -169,9 +169,9 @@ try:
         sauce.delete_tunnel(tunnel_id)
 
     def tunnel_change_callback(new_tunnel):
-        global tunnel_id
         print "New tunnel:"
         print new_tunnel
+        global tunnel_id
         tunnel_id = new_tunnel['id']
         print "New tunnel ID: %s" % tunnel_id
         connect_to_tunnel()
@@ -208,7 +208,7 @@ try:
                                options.diagnostic)
 
     connect_to_tunnel()
-      
+
 finally:
     print "Aborted -- shutting down tunnel machine"
     sauce.delete_tunnel(tunnel_id)

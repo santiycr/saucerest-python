@@ -26,6 +26,7 @@ import sys
 import time
 import httplib2
 import urllib
+import socket
 import simplejson  # http://cheeseshop.python.org/pypi/simplejson
 
 
@@ -148,9 +149,30 @@ class SauceClient:
         return self.delete('tunnels', tunnel_id)
 
     # -- Tunnel utilities
+
+    # TODO: Change this to the real hello port when expediter is modified
+    #   to open the firewall for us.
+    def _tunnel_says_hello(self, host, port=22, timeout=10):
+        """Return whether we receive a hello message from the host."""
+        socket.setdefaulttimeout(timeout)  # timeout in secs
+
+        sock = socket.socket()
+        try:
+            # these block until timeout
+            sock.connect((host, port))
+            data = sock.recv(4096)
+        except socket.timeout:
+            return False
+
+        if data:
+            return data.startswith("SSH-2.0-Twisted")
+        else:
+            return False
+
+
     def healthy_tunnel(self, tunnel_id):
+        """Return whether a tunnel connection is considered healthy."""
         tunnel = self.get_tunnel(tunnel_id)
         if tunnel['Status'] != 'running':
             return False
-        else:
-            return True
+        return self._tunnel_says_hello(tunnel['Host'])
