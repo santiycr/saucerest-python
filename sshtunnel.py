@@ -26,12 +26,13 @@
 import struct
 import sys
 import os
+import saucerest
 
 from twisted.conch.ssh import connection, channel, \
                               userauth, keys, common, \
                               transport, forwarding
 from twisted.internet import defer, protocol, reactor, task
-
+from twisted.internet.task import LoopingCall
 
 class TunnelTransport(transport.SSHClientTransport):
 
@@ -230,13 +231,31 @@ class NullChannel(channel.SSHChannel):
 
 open_tunnels = 0
 
+def heartbeat(name, key, base_url, tunnel_id, update_callback):
+    sauce = saucerest.SauceClient(name, key, base_url)
+    healthy = sauce.healthy_tunnel(tunnel_id)
+    if healthy:
+        print "booboomp . "
+    if not healthy:
+        print "---beep----"
+        tunnel_settings = sauce.get_tunnel(tunnel_id)
+        sauce.delete_tunnel(tunnel_id)
+        print "Old tunnel:"
+        print tunnel_settings
+        new_tunnel = sauce.create_tunnel({'DomainNames': tunnel_settings['DomainNames']})
+        if update_callback:
+            update_callback(new_tunnel)
 
-def connect_tunnel(username,
+
+def connect_tunnel(tunnel_id,
+                   base_url,
+                   username,
                    access_key,
                    local_host,
                    remote_host,
                    ports,
                    connected_callback=None,
+                   change_callback=None,
                    shutdown_callback=None,
                    diagnostic=False):
 
@@ -257,5 +276,8 @@ def connect_tunnel(username,
                                    check_n_call,
                                    diagnostic).connectTCP(remote_host,
                                                               22)
+    live_check = LoopingCall(heartbeat, username, access_key, base_url, tunnel_id, change_callback)
+    live_check.start(5)
     reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
+    reactor.addSystemEventTrigger("before", "shutdown", live_check.stop)
     reactor.run()

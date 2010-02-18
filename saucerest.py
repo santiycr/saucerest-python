@@ -146,3 +146,11 @@ class SauceClient:
 
     def delete_tunnel(self, tunnel_id):
         return self.delete('tunnels', tunnel_id)
+
+    # -- Tunnel utilities
+    def healthy_tunnel(self, tunnel_id):
+        tunnel = self.get_tunnel(tunnel_id)
+        if tunnel['Status'] != 'running':
+            return False
+        else:
+            return True
