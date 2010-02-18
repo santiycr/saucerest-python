@@ -150,10 +150,8 @@ class SauceClient:
 
     # -- Tunnel utilities
 
-    # TODO: Change this to the real hello port when expediter is modified
-    #   to open the firewall for us.
-    def _tunnel_says_hello(self, host, port=22, timeout=10):
-        """Return whether we receive a hello message from the host."""
+    def _tunnel_gravina_is_up(self, host, port=22, timeout=10):
+        """Return whether we receive the Twisted SSH string from the host."""
         socket.setdefaulttimeout(timeout)  # timeout in secs
 
         sock = socket.socket()
@@ -175,4 +173,4 @@ class SauceClient:
         tunnel = self.get_tunnel(tunnel_id)
         if tunnel['Status'] != 'running':
             return False
-        return self._tunnel_says_hello(tunnel['Host'])
+        return self._tunnel_gravina_is_up(tunnel['Host'])
