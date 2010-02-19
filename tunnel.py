@@ -165,7 +165,7 @@ try:
     else:
         raise Exception("Timed out")
 
-    def shutdown_callback():
+    def shutdown_callback(tunnel_id):
         return lambda : sauce.delete_tunnel(tunnel_id)
 
     drop_readyfile = None
@@ -214,7 +214,7 @@ try:
                                username,
                                access_key,
                                local_host,
-                               tunnel['Host'],
+                               new_tunnel['Host'],
                                ports,
                                connected_callback,
                                tunnel_change_callback,
@@ -230,7 +230,7 @@ try:
                                ports,
                                connected_callback,
                                tunnel_change_callback,
-                               shutdown_callback,
+                               shutdown_callback(tunnel_id),
                                options.diagnostic)
 
     sshtunnel.start_monitor()

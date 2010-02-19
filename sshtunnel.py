@@ -204,8 +204,7 @@ class TunnelConnection(connection.SSHConnection):
             print('stopping connection to a closed tunnel')
             try:
                 #dont stop reactor when one connection is closed
-                #reactor.stop()
-                pass
+                self.__class__.__bases__[0].channelClosed(self, channel)
             except:
                 pass
         else:
@@ -242,10 +241,8 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
     sauce = saucerest.SauceClient(name, key, base_url)
     healthy = sauce.healthy_tunnel(tunnel_id)
     if healthy: 
-        print "booboomp . "
         reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
     if not healthy:
-        print "---beep----"
         tunnel_settings = sauce.get_tunnel(tunnel_id)
         sauce.delete_tunnel(tunnel_id)
         building_tunnel = True
@@ -278,6 +275,7 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
             else:
                 raise Exception("Timed out")
         if update_callback:
+            new_tunnel = sauce.get_tunnel(new_tunnel['id'])
             update_callback(new_tunnel)
 
 def connect_tunnel(tunnel_id,
