@@ -264,7 +264,7 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
                 #wait for tunnel to be useable
                 tunnel = sauce.get_tunnel(new_tunnel['id'])
                 if tunnel['Status'] != last_st:
-                        last_st = tunnel['Status']
+                    last_st = tunnel['Status']
                     print "Status: %s" % tunnel['Status']
                 if tunnel['Status'] == 'terminated':
                     #if the tunnel flakes out
