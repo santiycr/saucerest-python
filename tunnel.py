@@ -205,10 +205,7 @@ try:
         elif drop_readyfile:
             connected_callback = drop_readyfile
 
-        print "New tunnel:"
-        print new_tunnel
         tunnel_id = new_tunnel['id']
-        print "New tunnel ID: %s" % tunnel_id
         sshtunnel.connect_tunnel(tunnel_id,
                                sauce.base_url,
                                username,
