@@ -217,7 +217,7 @@ try:
         print new_tunnel
         tunnel_id = new_tunnel['id']
         print "New tunnel ID: %s" % tunnel_id
-        sshtunnel.tunnel_setup(tunnel_id,
+        sshtunnel.connect_tunnel(tunnel_id,
                                sauce.base_url,
                                username,
                                access_key,
@@ -240,6 +240,8 @@ try:
                                tunnel_change_callback,
                                shutdown_callback,
                                options.diagnostic)
+
+    sshtunnel.start_monitor()
 
 finally:
     print "Aborted -- shutting down tunnel machine"

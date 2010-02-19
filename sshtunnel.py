@@ -23,7 +23,6 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import exceptions
 import time
 import struct
 import sys
@@ -202,7 +201,7 @@ class TunnelConnection(connection.SSHConnection):
             print('connection closing %s' % channel)
             print(self.channels)
         if len(self.channels) == 1: # just us left
-            print('stopping connection to broken tunnel')
+            print('stopping connection to a closed tunnel')
             try:
                 #dont stop reactor when one connection is closed
                 #reactor.stop()
@@ -242,14 +241,15 @@ open_tunnels = 0
 def heartbeat(name, key, base_url, tunnel_id, update_callback):
     sauce = saucerest.SauceClient(name, key, base_url)
     healthy = sauce.healthy_tunnel(tunnel_id)
-    if True:
-        if healthy: 
-            print "booboomp . "
-            reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
-        if not healthy:
-            print "---beep----"
-            tunnel_settings = sauce.get_tunnel(tunnel_id)
-            sauce.delete_tunnel(tunnel_id)
+    if healthy: 
+        print "booboomp . "
+        reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
+    if not healthy:
+        print "---beep----"
+        tunnel_settings = sauce.get_tunnel(tunnel_id)
+        sauce.delete_tunnel(tunnel_id)
+        building_tunnel = True
+        while building_tunnel: 
             new_tunnel = sauce.create_tunnel({'DomainNames': tunnel_settings['DomainNames']})
             while 'error' in new_tunnel:
                 #if tunnels die when you try to create them (flakey tunnels)
@@ -261,20 +261,26 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
             t = 0 
             last_st = ""
             while t < timeout:
+                #wait for tunnel to be useable
                 tunnel = sauce.get_tunnel(new_tunnel['id'])
                 if tunnel['Status'] != last_st:
-                    last_st = tunnel['Status']
+                        last_st = tunnel['Status']
                     print "Status: %s" % tunnel['Status']
+                if tunnel['Status'] == 'terminated':
+                    #if the tunnel flakes out
+                    sauce.delete_tunnel(new_tunnel['id'])
+                    break
                 if tunnel['Status'] == 'running':
+                    building_tunnel = False
                     break
                 time.sleep(interval)
                 t += interval
             else:
                 raise Exception("Timed out")
-            if update_callback:
-                update_callback(new_tunnel)
+        if update_callback:
+            update_callback(new_tunnel)
 
-def tunnel_setup(t_id,
+def connect_tunnel(tunnel_id,
                  base_url,
                  username,
                  access_key,
@@ -302,31 +308,8 @@ def tunnel_setup(t_id,
                                    remote_port,
                                    check_n_call,
                                    diagnostic).connectTCP(remote_host, 22)
-    reactor.callLater(5, heartbeat, username, access_key, base_url, t_id, change_callback)
+    reactor.callLater(5, heartbeat, username, access_key, base_url, tunnel_id, change_callback)
     reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
     
-
-def connect_tunnel(tunnel_id,
-                   base_url,
-                   username,
-                   access_key,
-                   local_host,
-                   remote_host,
-                   ports,
-                   connected_callback=None,
-                   change_callback=None,
-                   shutdown_callback=None,
-                   diagnostic=False):
-
-    tunnel_setup(tunnel_id,
-                 base_url,
-                 username,
-                 access_key,
-                 local_host,
-                 remote_host,
-                 ports,
-                 connected_callback,
-                 change_callback,
-                 shutdown_callback,
-                 diagnostic)
+def start_monitor():
     reactor.run()
