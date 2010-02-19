@@ -228,8 +228,7 @@ class NullChannel(channel.SSHChannel):
 
     def closed(self):
         global old
-        print('closed %s' % self)
-        print(repr(self.conn.channels))
+        print('closing channel')
 
 """
 Tunnel handling:
@@ -243,6 +242,7 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
     if healthy: 
         reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
     if not healthy:
+        print "Tunnel is down, booting new tunnel"
         tunnel_settings = sauce.get_tunnel(tunnel_id)
         sauce.delete_tunnel(tunnel_id)
         building_tunnel = True
