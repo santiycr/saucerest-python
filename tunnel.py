@@ -194,8 +194,42 @@ try:
     elif drop_readyfile:
         connected_callback = drop_readyfile
 
-    def connect_to_tunnel():
-      sshtunnel.connect_tunnel(tunnel_id,
+    def tunnel_change_callback(new_tunnel):
+        global tunnel_id
+        global options
+        drop_readyfile = None
+        if options.readyfile:
+
+            def d():
+                open(options.readyfile, 'wb').write("ready")
+        connected_callback = None
+        if options.daemonize:
+
+            def daemonize():
+                daemon.daemonize(options.pidfile)
+                if drop_readyfile:
+                    drop_readyfile()
+            connected_callback = daemonize
+        elif drop_readyfile:
+            connected_callback = drop_readyfile
+
+        print "New tunnel:"
+        print new_tunnel
+        tunnel_id = new_tunnel['id']
+        print "New tunnel ID: %s" % tunnel_id
+        sshtunnel.tunnel_setup(tunnel_id,
+                               sauce.base_url,
+                               username,
+                               access_key,
+                               local_host,
+                               tunnel['Host'],
+                               ports,
+                               connected_callback,
+                               tunnel_change_callback,
+                               shutdown_callback(tunnel_id),
+                               options.diagnostic)
+
+    sshtunnel.connect_tunnel(tunnel_id,
                                sauce.base_url,
                                username,
                                access_key,
@@ -206,8 +240,6 @@ try:
                                tunnel_change_callback,
                                shutdown_callback,
                                options.diagnostic)
-
-    connect_to_tunnel()
 
 finally:
     print "Aborted -- shutting down tunnel machine"

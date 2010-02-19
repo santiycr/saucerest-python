@@ -23,6 +23,8 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import exceptions
+import time
 import struct
 import sys
 import os
@@ -200,9 +202,11 @@ class TunnelConnection(connection.SSHConnection):
             print('connection closing %s' % channel)
             print(self.channels)
         if len(self.channels) == 1: # just us left
-            print('stopping connection')
+            print('stopping connection to broken tunnel')
             try:
-                reactor.stop()
+                #dont stop reactor when one connection is closed
+                #reactor.stop()
+                pass
             except:
                 pass
         else:
@@ -229,35 +233,58 @@ class NullChannel(channel.SSHChannel):
         print('closed %s' % self)
         print(repr(self.conn.channels))
 
+"""
+Tunnel handling:
+"""
+
 open_tunnels = 0
 
 def heartbeat(name, key, base_url, tunnel_id, update_callback):
     sauce = saucerest.SauceClient(name, key, base_url)
     healthy = sauce.healthy_tunnel(tunnel_id)
-    if healthy:
-        print "booboomp . "
-    if not healthy:
-        print "---beep----"
-        tunnel_settings = sauce.get_tunnel(tunnel_id)
-        sauce.delete_tunnel(tunnel_id)
-        print "Old tunnel:"
-        print tunnel_settings
-        new_tunnel = sauce.create_tunnel({'DomainNames': tunnel_settings['DomainNames']})
-        if update_callback:
-            update_callback(new_tunnel)
+    if True:
+        if healthy: 
+            print "booboomp . "
+            reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
+        if not healthy:
+            print "---beep----"
+            tunnel_settings = sauce.get_tunnel(tunnel_id)
+            sauce.delete_tunnel(tunnel_id)
+            new_tunnel = sauce.create_tunnel({'DomainNames': tunnel_settings['DomainNames']})
+            while 'error' in new_tunnel:
+                #if tunnels die when you try to create them (flakey tunnels)
+                print "Error: %s" % new_tunnel['error']
+                time.sleep(5)
+                new_tunnel = sauce.create_tunnel({'DomainNames': tunnel_settings['DomainNames']})
+            interval = 5 
+            timeout = 600 
+            t = 0 
+            last_st = ""
+            while t < timeout:
+                tunnel = sauce.get_tunnel(new_tunnel['id'])
+                if tunnel['Status'] != last_st:
+                    last_st = tunnel['Status']
+                    print "Status: %s" % tunnel['Status']
+                if tunnel['Status'] == 'running':
+                    break
+                time.sleep(interval)
+                t += interval
+            else:
+                raise Exception("Timed out")
+            if update_callback:
+                update_callback(new_tunnel)
 
-
-def connect_tunnel(tunnel_id,
-                   base_url,
-                   username,
-                   access_key,
-                   local_host,
-                   remote_host,
-                   ports,
-                   connected_callback=None,
-                   change_callback=None,
-                   shutdown_callback=None,
-                   diagnostic=False):
+def tunnel_setup(t_id,
+                 base_url,
+                 username,
+                 access_key,
+                 local_host,
+                 remote_host,
+                 ports,
+                 connected_callback,
+                 change_callback,
+                 shutdown_callback,
+                 diagnostic):
 
     def check_n_call():
         global open_tunnels
@@ -274,10 +301,32 @@ def connect_tunnel(tunnel_id,
                                    local_port,
                                    remote_port,
                                    check_n_call,
-                                   diagnostic).connectTCP(remote_host,
-                                                              22)
-    live_check = LoopingCall(heartbeat, username, access_key, base_url, tunnel_id, change_callback)
-    live_check.start(5)
+                                   diagnostic).connectTCP(remote_host, 22)
+    reactor.callLater(5, heartbeat, username, access_key, base_url, t_id, change_callback)
     reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
-    reactor.addSystemEventTrigger("before", "shutdown", live_check.stop)
+    
+
+def connect_tunnel(tunnel_id,
+                   base_url,
+                   username,
+                   access_key,
+                   local_host,
+                   remote_host,
+                   ports,
+                   connected_callback=None,
+                   change_callback=None,
+                   shutdown_callback=None,
+                   diagnostic=False):
+
+    tunnel_setup(tunnel_id,
+                 base_url,
+                 username,
+                 access_key,
+                 local_host,
+                 remote_host,
+                 ports,
+                 connected_callback,
+                 change_callback,
+                 shutdown_callback,
+                 diagnostic)
     reactor.run()
