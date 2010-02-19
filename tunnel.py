@@ -166,15 +166,7 @@ try:
         raise Exception("Timed out")
 
     def shutdown_callback():
-        sauce.delete_tunnel(tunnel_id)
-
-    def tunnel_change_callback(new_tunnel):
-        print "New tunnel:"
-        print new_tunnel
-        global tunnel_id
-        tunnel_id = new_tunnel['id']
-        print "New tunnel ID: %s" % tunnel_id
-        connect_to_tunnel()
+        return lambda : sauce.delete_tunnel(tunnel_id)
 
     drop_readyfile = None
     if options.readyfile:
