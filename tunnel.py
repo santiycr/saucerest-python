@@ -28,6 +28,7 @@ import signal
 import saucerest
 import sshtunnel
 import daemon
+from tunnelmonitor import start_monitor
 
 from optparse import OptionParser
 
@@ -230,7 +231,7 @@ try:
                                shutdown_callback(tunnel_id),
                                options.diagnostic)
 
-    sshtunnel.start_monitor()
+    start_monitor()
 
 finally:
     print "Aborted -- shutting down tunnel machine"
