@@ -1,7 +1,7 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2009 Sauce Labs Inc
+# Copyright (c) 2009-2010 Sauce Labs Inc
 # Copyright (c) 2001-2004 Twisted Matrix Laboratories.
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -28,11 +28,10 @@ import struct
 import sys
 import os
 import saucerest
-from tunnelmonitor import heartbeat
 
-from twisted.conch.ssh import connection, channel, \
-                              userauth, keys, common, \
-                              transport, forwarding
+from twisted.conch.ssh import (connection, channel,
+                               userauth, keys, common,
+                               transport, forwarding)
 from twisted.internet import defer, protocol, reactor, task
 from twisted.internet.task import LoopingCall
 
@@ -245,7 +244,6 @@ def connect_tunnel(tunnel_id,
                  remote_host,
                  ports,
                  connected_callback,
-                 change_callback,
                  shutdown_callback,
                  diagnostic):
 
@@ -265,6 +263,6 @@ def connect_tunnel(tunnel_id,
                                    remote_port,
                                    check_n_call,
                                    diagnostic).connectTCP(remote_host, 22)
-    reactor.callLater(5, heartbeat, username, access_key, base_url, tunnel_id, change_callback)
+
     reactor.addSystemEventTrigger("before", "shutdown", shutdown_callback)
-    
+

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2009 Sauce Labs Inc
+# Copyright (c) 2009-2010 Sauce Labs Inc
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -28,9 +28,11 @@ import signal
 import saucerest
 import sshtunnel
 import daemon
-from tunnelmonitor import start_monitor
 
 from optparse import OptionParser
+from twisted.internet import reactor
+
+from tunnelmonitor import heartbeat
 
 usage = "usage: %prog [options] <username> <access key> <local host> <local \
 port>:<remote port>[,<local port>:<remote port>] <remote domain>[,<remote \
@@ -167,25 +169,7 @@ try:
         raise Exception("Timed out")
 
     def shutdown_callback(tunnel_id):
-        return lambda : sauce.delete_tunnel(tunnel_id)
-
-    drop_readyfile = None
-    if options.readyfile:
-
-        def d():
-            open(options.readyfile, 'wb').write("ready")
-        drop_readyfile = d
-
-    connected_callback = None
-    if options.daemonize:
-
-        def daemonize():
-            daemon.daemonize(options.pidfile)
-            if drop_readyfile:
-                drop_readyfile()
-        connected_callback = daemonize
-    elif drop_readyfile:
-        connected_callback = drop_readyfile
+        return lambda: sauce.delete_tunnel(tunnel_id)
 
     def tunnel_change_callback(new_tunnel):
         global tunnel_id
@@ -208,30 +192,21 @@ try:
 
         tunnel_id = new_tunnel['id']
         sshtunnel.connect_tunnel(tunnel_id,
-                               sauce.base_url,
-                               username,
-                               access_key,
-                               local_host,
-                               new_tunnel['Host'],
-                               ports,
-                               connected_callback,
-                               tunnel_change_callback,
-                               shutdown_callback(tunnel_id),
-                               options.diagnostic)
+                                 sauce.base_url,
+                                 username,
+                                 access_key,
+                                 local_host,
+                                 new_tunnel['Host'],
+                                 ports,
+                                 connected_callback,
+                                 shutdown_callback(tunnel_id),
+                                 options.diagnostic)
 
-    sshtunnel.connect_tunnel(tunnel_id,
-                               sauce.base_url,
-                               username,
-                               access_key,
-                               local_host,
-                               tunnel['Host'],
-                               ports,
-                               connected_callback,
-                               tunnel_change_callback,
-                               shutdown_callback(tunnel_id),
-                               options.diagnostic)
+    tunnel_change_callback(tunnel)
 
-    start_monitor()
+    heartbeat(username, access_key, sauce.base_url, tunnel_id, tunnel_change_callback)
+
+    reactor.run()
 
 finally:
     print "Aborted -- shutting down tunnel machine"
