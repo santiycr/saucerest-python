@@ -171,24 +171,23 @@ try:
     def shutdown_callback(tunnel_id):
         return lambda: sauce.delete_tunnel(tunnel_id)
 
+    drop_readyfile = None
+    if options.readyfile:
+        def d():
+            open(options.readyfile, 'wb').write("ready")
+
+    connected_callback = None
+    if options.daemonize:
+        def daemonize():
+            daemon.daemonize(options.pidfile)
+            if drop_readyfile:
+                drop_readyfile()
+        connected_callback = daemonize
+    elif drop_readyfile:
+        connected_callback = drop_readyfile
+
     def tunnel_change_callback(new_tunnel):
         global tunnel_id
-        global options
-        drop_readyfile = None
-        if options.readyfile:
-
-            def d():
-                open(options.readyfile, 'wb').write("ready")
-        connected_callback = None
-        if options.daemonize:
-
-            def daemonize():
-                daemon.daemonize(options.pidfile)
-                if drop_readyfile:
-                    drop_readyfile()
-            connected_callback = daemonize
-        elif drop_readyfile:
-            connected_callback = drop_readyfile
 
         tunnel_id = new_tunnel['id']
         sshtunnel.connect_tunnel(tunnel_id,
