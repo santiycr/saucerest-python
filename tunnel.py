@@ -172,6 +172,7 @@ try:
     if options.readyfile:
         def d():
             open(options.readyfile, 'wb').write("ready")
+        drop_readyfile = d
 
     connected_callback = None
     if options.daemonize:
