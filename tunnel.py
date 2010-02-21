@@ -168,9 +168,6 @@ try:
     else:
         raise Exception("Timed out")
 
-    def shutdown_callback(tunnel_id):
-        return lambda: sauce.delete_tunnel(tunnel_id)
-
     drop_readyfile = None
     if options.readyfile:
         def d():
@@ -198,7 +195,7 @@ try:
                                  new_tunnel['Host'],
                                  ports,
                                  connected_callback,
-                                 shutdown_callback(tunnel_id),
+                                 lambda: sauce.delete_tunnel(tunnel_id),
                                  options.diagnostic)
 
     tunnel_change_callback(tunnel)
