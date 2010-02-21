@@ -203,7 +203,11 @@ try:
 
     tunnel_change_callback(tunnel)
 
-    heartbeat(username, access_key, sauce.base_url, tunnel_id, tunnel_change_callback)
+    heartbeat(username,
+              access_key,
+              sauce.base_url,
+              tunnel_id,
+              tunnel_change_callback)
 
     reactor.run()
 

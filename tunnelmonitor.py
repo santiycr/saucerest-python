@@ -32,7 +32,7 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
     healthy = sauce.healthy_tunnel(tunnel_id)
     if healthy:
         reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
-    if not healthy:
+    else:
         print "Tunnel is down, booting new tunnel"
         tunnel_settings = sauce.get_tunnel(tunnel_id)
         sauce.delete_tunnel(tunnel_id)
@@ -44,27 +44,32 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
                 print "Error: %s" % new_tunnel['error']
                 time.sleep(5)
                 new_tunnel = sauce.create_tunnel({'DomainNames': tunnel_settings['DomainNames']})
-            interval = 5
-            timeout = 600
-            t = 0
-            last_st = ""
-            while t < timeout:
-                #wait for tunnel to be useable
-                tunnel = sauce.get_tunnel(new_tunnel['id'])
-                if tunnel['Status'] != last_st:
-                    last_st = tunnel['Status']
-                    print "Status: %s" % tunnel['Status']
-                if tunnel['Status'] == 'terminated':
-                    #if the tunnel flakes out
-                    sauce.delete_tunnel(new_tunnel['id'])
-                    break
-                if tunnel['Status'] == 'running':
-                    building_tunnel = False
-                    break
-                time.sleep(interval)
-                t += interval
-            else:
-                raise Exception("Timed out")
+            try:
+                interval = 5
+                timeout = 600
+                t = 0
+                last_st = ""
+                while t < timeout:
+                    #wait for tunnel to be useable
+                    tunnel = sauce.get_tunnel(new_tunnel['id'])
+                    if tunnel['Status'] != last_st:
+                        last_st = tunnel['Status']
+                        print "Status: %s" % tunnel['Status']
+                    if tunnel['Status'] == 'terminated':
+                        #if the tunnel flakes out
+                        sauce.delete_tunnel(new_tunnel['id'])
+                        break
+                    if tunnel['Status'] == 'running':
+                        building_tunnel = False
+                        break
+                    time.sleep(interval)
+                    t += interval
+                else:
+                    raise Exception("Timed out")
+            finally:
+                print "replacement aborted -- shutting down replacement tunnel machine"
+                sauce.delete_tunnel(new_tunnel['id'])
+
         if update_callback:
             new_tunnel = sauce.get_tunnel(new_tunnel['id'])
             update_callback(new_tunnel)
