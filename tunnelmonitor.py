@@ -33,8 +33,11 @@ def heartbeat(name, key, base_url, tunnel_id, update_callback):
     if healthy:
         reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
     else:
-        print "Tunnel is down, booting new tunnel"
         tunnel_settings = sauce.get_tunnel(tunnel_id)
+        if 'UserShutDown' in tunnel_settings:
+                print "Tunnel shutting down on user request"
+                return
+        print "Tunnel is down, booting new tunnel"
         sauce.delete_tunnel(tunnel_id)
         building_tunnel = True
         while building_tunnel:
