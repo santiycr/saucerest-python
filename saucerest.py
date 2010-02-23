@@ -150,7 +150,7 @@ class SauceClient:
 
     # -- Tunnel utilities
 
-    def _tunnel_gravina_is_up(self, host, port=22, timeout=10):
+    def _is_host_ssh_up(self, host, port=22, timeout=10):
         """Return whether we receive the Twisted SSH string from the host."""
         socket.setdefaulttimeout(timeout)  # timeout in secs
 
@@ -168,9 +168,9 @@ class SauceClient:
             return False
 
 
-    def healthy_tunnel(self, tunnel_id):
-        """Return whether a tunnel connection is considered healthy."""
+    def is_tunnel_up(self, tunnel_id):
+        """Return whether a tunnel machine is up and running."""
         tunnel = self.get_tunnel(tunnel_id)
         if tunnel['Status'] != 'running':
             return False
-        return self._tunnel_gravina_is_up(tunnel['Host'])
+        return self._is_host_ssh_up(tunnel['Host'])

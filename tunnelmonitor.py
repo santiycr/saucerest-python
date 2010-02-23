@@ -29,8 +29,7 @@ from twisted.internet import reactor
 
 def heartbeat(name, key, base_url, tunnel_id, update_callback):
     sauce = saucerest.SauceClient(name, key, base_url)
-    healthy = sauce.healthy_tunnel(tunnel_id)
-    if healthy:
+    if sauce.is_tunnel_up(tunnel_id):
         reactor.callLater(5, heartbeat, name, key, base_url, tunnel_id, update_callback)
     else:
         tunnel_settings = sauce.get_tunnel(tunnel_id)
