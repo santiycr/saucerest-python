@@ -184,7 +184,7 @@ try:
     elif drop_readyfile:
         connected_callback = drop_readyfile
 
-    def tunnel_change_callback(new_tunnel):
+    def tunnel_change_callback(new_tunnel, connected_callback=None):
         global tunnel_id
 
         tunnel_id = new_tunnel['id']
@@ -199,7 +199,7 @@ try:
                                  lambda: sauce.delete_tunnel(tunnel_id),
                                  options.diagnostic)
 
-    tunnel_change_callback(tunnel)
+    tunnel_change_callback(tunnel, connected_callback=connected_callback)
 
     heartbeat(username,
               access_key,
